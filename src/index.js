@@ -6,6 +6,14 @@ const X_CLIENT_ID_HEADER_KEY = 'X-CLIENT-ID';
 const X_API_KEY_HEADER_KEY = 'X-API-KEY';
 const AUTHORIZATION_KEY = 'Authorization';
 
+
+// const kable = (config) => {
+//   return new Kable(config);
+// }
+function kable(config) {
+  return new Kable(config);
+}
+
 class Kable {
 
   constructor(config) {
@@ -134,4 +142,6 @@ class Kable {
 
 }
 
-module.exports = Kable;
+module.exports = {
+  kable
+}
