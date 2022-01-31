@@ -3,6 +3,7 @@ const NodeCache = require("node-cache");
 const KABLE_ENVIRONMENT_HEADER_KEY = 'KABLE-ENVIRONMENT';
 const KABLE_CLIENT_ID_HEADER_KEY = 'KABLE-CLIENT-ID';
 const X_CLIENT_ID_HEADER_KEY = 'X-CLIENT-ID';
+const X_API_KEY_HEADER_KEY = 'X-API-KEY';
 const AUTHORIZATION_KEY = 'Authorization';
 
 class Kable {
@@ -42,6 +43,7 @@ class Kable {
           [KABLE_ENVIRONMENT_HEADER_KEY]: this.environment,
           [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId,
           [X_CLIENT_ID_HEADER_KEY]: this.kableClientId,
+          [X_API_KEY_HEADER_KEY]: this.kableClientSecret,
           [AUTHORIZATION_KEY]: `Bearer: ${this.kableClientSecret}`
         },
         // credentials: 'include',
@@ -65,7 +67,8 @@ class Kable {
   authenticate(req, res, next) {
     const method = req.method;
     const xClientId = req.get(X_CLIENT_ID_HEADER_KEY);
-    const secretKey = getBearerToken(req);
+    const xApiKey = req.get(X_API_KEY_HEADER_KEY);
+    const secretKey = xApiKey ? xApiKey : getBearerToken(req);
 
     if (/*!this.environment || !this.kableClientId ||*/ !xClientId || !secretKey) {
       return res.status(401).json({ message: 'Unauthorized' });
