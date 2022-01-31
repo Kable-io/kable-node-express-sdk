@@ -1,8 +1,8 @@
 {
   "name": "kable-node",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Kable Node SDK",
-  "main": "source/app.ts",
+  "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
     "debug": "export DEBUG=* && npm run start",
@@ -13,7 +13,7 @@
     "url": "git+https://github.com/KableAPI/kable-node-sdk.git"
   },
   "author": "",
-  "license": "0BSD",
+  "license": "ISC",
   "bugs": {
     "url": "https://github.com/KableAPI/kable-node-sdk/issues"
   },
