@@ -4,7 +4,7 @@ const NodeCache = require("node-cache");
 const axios = require("axios");
 const app = express();
 app.use(express.json());
-const PORT = 3001;
+const PORT = process.env.NODE_ENV || 3001;
 
 const ENVIRONMENT: string = "DEVELOPMENT";
 const CLIENT_ID: string = "<SOME_VALUE>";
