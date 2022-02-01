@@ -142,7 +142,10 @@ class Kable {
         return res.status(response.status).json({ message: 'Unexpected response' });
       })
       .catch(error => {
-        return res.status(500).json({ message: 'Something went wrong' });
+        if (error.response) {
+          return res.status(error.response.status).json({ message: error.response.data });
+        }
+        else return res.status(500).json({ message: 'Something went wrong' });
       });
   }
 
