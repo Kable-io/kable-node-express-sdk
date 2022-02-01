@@ -81,7 +81,7 @@ class Kable {
   }
 
 
-  authenticate(req, res, next) {
+  authenticate = (req, res, next) => {
     // const method = req.method;
     const xClientId = req.get(X_CLIENT_ID_HEADER_KEY);
     let secretKey = req.get(X_API_KEY_HEADER_KEY);
@@ -147,6 +147,7 @@ class Kable {
   }
 
 }
+
 
 module.exports = {
   kable
