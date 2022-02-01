@@ -123,7 +123,7 @@ class Kable {
         [KABLE_ENVIRONMENT_HEADER_KEY]: this.environment,
         [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId,
         [X_CLIENT_ID_HEADER_KEY]: xClientId,
-        [X_API_KEY_HEADER_KEY]: this.kableClientSecret,
+        [X_API_KEY_HEADER_KEY]: secretKey,
         [AUTHORIZATION_KEY]: `Bearer: ${secretKey}`
       },
       data: req.body
