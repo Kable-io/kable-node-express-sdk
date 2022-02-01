@@ -18,39 +18,39 @@ class Kable {
 
     console.log("Initializing Kable");
 
-    assert(config, 'Failed to initialize Kable: config not provided');
-    // if (!config) {
-    //   throw new Error('Failed to initialize Kable: config not provided');
-    // }
+    if (!config) {
+      // throw new Error('Failed to initialize Kable: config not provided');
+      console.error('Failed to initialize Kable: config not provided');
+    }
 
     this.environment = config.environment;
     this.kableClientId = config.clientId;
     this.kableClientSecret = config.clientSecret;
     this.baseUrl = config.baseUrl;
 
-    assert(this.environment, 'Failed to initialize Kable: environment not provided');
-    assert(this.kableClientId, 'Failed to initialize Kable: clientId not provided');
-    assert(this.kableClientSecret, 'Failed to initialize Kable: clientSecret not provided');
-    assert(this.baseUrl, 'Failed to initialize Kable: baseUrl not provided');
-    // if (!this.environment) {
-    //   throw new Error('Failed to initialize Kable: environment not provided');
-    // }
-    // if (!this.kableClientId) {
-    //   throw new Error('Failed to initialize Kable: clientId not provided');
-    // }
-    // if (!this.kableClientSecret) {
-    //   throw new Error('Failed to initialize Kable: clientSecret not provided');
-    // }
-    // if (!this.baseUrl) {
-    //   throw new Error('Failed to initialize Kable: baseUrl not provided');
-    // }
+    if (!this.environment) {
+      // throw new Error('Failed to initialize Kable: environment not provided');
+      console.error('Failed to initialize Kable: environment not provided');
+    }
+    if (!this.kableClientId) {
+      // throw new Error('Failed to initialize Kable: clientId not provided');
+      console.error('Failed to initialize Kable: clientId not provided');
+    }
+    if (!this.kableClientSecret) {
+      // throw new Error('Failed to initialize Kable: clientSecret not provided');
+      console.error('Failed to initialize Kable: clientSecret not provided');
+    }
+    if (!this.baseUrl) {
+      // throw new Error('Failed to initialize Kable: baseUrl not provided');
+      console.error('Failed to initialize Kable: baseUrl not provided');
+    }
 
     this.validCache = new NodeCache({ stdTTL: 10, maxKeys: 1000, checkperiod: 120 });
     this.invalidCache = new NodeCache({ stdTTL: 10, maxKeys: 1000, checkperiod: 120 });
 
     this.kableEnvironment = this.environment.toLowerCase() === 'live' ? 'live' : 'test';
 
-    return axios({
+    axios({
       url: `https://${this.kableEnvironment}.kableapi.com/api/authenticate`,
       method: 'POST',
       headers: {
@@ -58,24 +58,25 @@ class Kable {
         [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId,
         [X_CLIENT_ID_HEADER_KEY]: this.kableClientId,
         [X_API_KEY_HEADER_KEY]: this.kableClientSecret,
-        [AUTHORIZATION_KEY]: `Bearer: ${this.kableClientSecret}`
+        [AUTHORIZATION_KEY]: `Bearer ${this.kableClientSecret}`
       }
     })
       .then(response => {
-        assert(response.status === 200, "Failed to initialize Kable: Unauthorized");
-        // if (response.status === 200) {
-        //   // proceed with initialization
-        // } else if (response.status === 401) {
-        //   throw new Error('Failed to initialize Kable: Unauthorized');
-        // } else {
-        //   throw new Error('Failed to initialize Kable: Something went wrong');
-        // }
+        if (response.status === 200) {
+          // proceed with initialization
+        } else if (response.status === 401) {
+          // throw new Error('Failed to initialize Kable: Unauthorized');
+          console.error('Failed to initialize Kable: Unauthorized');
+        } else {
+          // throw new Error('Failed to initialize Kable: Something went wrong');
+          console.error('Failed to initialize Kable: Something went wrong');
+        }
 
         console.log("Kable initialized successfully");
       })
       .catch(error => {
-        assert(false, "Failed to initialize Kable: Unauthorized");
         // throw new Error('Failed to initialize Kable: Something went wrong');
+        console.error('Failed to initialize Kable: Something went wrong', error);
       });
   }
 
@@ -97,13 +98,16 @@ class Kable {
       }
     }
 
+    if (!this.environment || !this.kableClientId) {
+      return res.status(500).json({ message: 'Failed to initialize Kable: Configuration invalid' });
+    }
+
     if (/*!this.environment || !this.kableClientId ||*/ !xClientId || !secretKey) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
     const validCacheClientId = this.validCache.get(secretKey);
     if (validCacheClientId) {
-      // return res.status(200).json({ client_id: validCacheClientId });
       return next(req);
     }
 
@@ -112,7 +116,7 @@ class Kable {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    return axios({
+    axios({
       url: `https://${this.kableEnvironment}.kableapi.com/api/authenticate`,
       method: 'POST',
       headers: {
@@ -127,7 +131,6 @@ class Kable {
       .then(response => {
         if (response.status % 100 == 2) {
           this.validCache.set(secretKey, xClientId);
-          // return res.status(200).json({ client_id: xClientId });
           return next(req);
         }
 
