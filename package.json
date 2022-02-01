@@ -19,8 +19,7 @@
   },
   "homepage": "https://github.com/KableAPI/kable-node-sdk#readme",
   "dependencies": {
+    "axios": "^0.25.0",
     "node-cache": "^5.1.2"
-  },
-  "devDependencies": {
   }
 }

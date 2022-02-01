@@ -1,3 +1,5 @@
+
+const axios = require('axios');
 const NodeCache = require("node-cache");
 
 const KABLE_ENVIRONMENT_HEADER_KEY = 'KABLE-ENVIRONMENT';
@@ -6,10 +8,6 @@ const X_CLIENT_ID_HEADER_KEY = 'X-CLIENT-ID';
 const X_API_KEY_HEADER_KEY = 'X-API-KEY';
 const AUTHORIZATION_KEY = 'Authorization';
 
-
-// const kable = (config) => {
-//   return new Kable(config);
-// }
 function kable(config) {
   return new Kable(config);
 }
@@ -93,18 +91,17 @@ class Kable {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    return fetch(`https://${this.kableEnvironment}.kableapi.com/api/authenticate`,
-      {
-        method: method,
-        headers: {
-          [KABLE_ENVIRONMENT_HEADER_KEY]: this.environment,
-          [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId,
-          [X_CLIENT_ID_HEADER_KEY]: xClientId,
-          [AUTHORIZATION_KEY]: `Bearer: ${secretKey}`
-        },
-        credentials: 'include',
-        body: req.body,
-      })
+    return axios({
+      url: `https://${this.kableEnvironment}.kableapi.com/api/authenticate`,
+      method: 'POST',
+      headers: {
+        [KABLE_ENVIRONMENT_HEADER_KEY]: this.environment,
+        [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId,
+        [X_CLIENT_ID_HEADER_KEY]: xClientId,
+        [AUTHORIZATION_KEY]: `Bearer: ${secretKey}`
+      },
+      data: req.body
+    })
       .then(response => {
         if (response.status % 100 == 2) {
           this.validCache.set(secretKey, xClientId);
@@ -122,6 +119,37 @@ class Kable {
       .catch(error => {
         return res.status(500).json({ message: 'Something went wrong' });
       });
+
+
+    // return fetch(`https://${this.kableEnvironment}.kableapi.com/api/authenticate`,
+    //   {
+    //     method: method,
+    //     headers: {
+    //       [KABLE_ENVIRONMENT_HEADER_KEY]: this.environment,
+    //       [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId,
+    //       [X_CLIENT_ID_HEADER_KEY]: xClientId,
+    //       [AUTHORIZATION_KEY]: `Bearer: ${secretKey}`
+    //     },
+    //     credentials: 'include',
+    //     body: req.body,
+    //   })
+    //   .then(response => {
+    //     if (response.status % 100 == 2) {
+    //       this.validCache.set(secretKey, xClientId);
+    //       // return res.status(200).json({ client_id: xClientId });
+    //       return next();
+    //     }
+
+    //     if (response.status % 100 == 4) {
+    //       this.invalidCache.set(secretKey, xClientId);
+    //       return res.status(401).json({ message: 'Unauthorized' });
+    //     }
+
+    //     return res.status(response.status).json({ message: 'Unexpected response' });
+    //   })
+    //   .catch(error => {
+    //     return res.status(500).json({ message: 'Something went wrong' });
+    //   });
   }
 
 
