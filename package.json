@@ -1,6 +1,6 @@
 {
   "name": "kable-node",
-  "version": "2.0.9",
+  "version": "2.1.1",
   "description": "Kable Node SDK",
   "main": "src/index.js",
   "scripts": {
@@ -20,6 +20,7 @@
   "homepage": "https://github.com/KableAPI/kable-node-sdk#readme",
   "dependencies": {
     "axios": "^0.25.0",
-    "node-cache": "^5.1.2"
+    "node-cache": "^5.1.2",
+    "uuid4": "^2.0.2"
   }
 }

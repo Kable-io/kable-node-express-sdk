@@ -1,12 +1,13 @@
-
+const packageJson = require('../package.json')
 const axios = require('axios');
+const uuidv4 = require("uuid4");
 const NodeCache = require("node-cache");
 
 const KABLE_ENVIRONMENT_HEADER_KEY = 'KABLE-ENVIRONMENT';
 const KABLE_CLIENT_ID_HEADER_KEY = 'KABLE-CLIENT-ID';
 const X_CLIENT_ID_HEADER_KEY = 'X-CLIENT-ID';
 const X_API_KEY_HEADER_KEY = 'X-API-KEY';
-const AUTHORIZATION_KEY = 'Authorization';
+const X_REQUEST_ID_HEADER_KEY = 'X-REQUEST-ID';
 
 function kable(config) {
   return new Kable(config).authenticate;
@@ -14,7 +15,7 @@ function kable(config) {
 
 class Kable {
 
-  constructor(config) {
+  constructor(config /*, options*/) {
 
     console.log("Initializing Kable");
 
@@ -29,36 +30,41 @@ class Kable {
     this.baseUrl = config.baseUrl;
 
     if (!this.environment) {
-      // throw new Error('Failed to initialize Kable: environment not provided');
-      console.error('Failed to initialize Kable: environment not provided');
+      throw new Error('Failed to initialize Kable: environment not provided');
+      // console.error('Failed to initialize Kable: environment not provided');
     }
     if (!this.kableClientId) {
-      // throw new Error('Failed to initialize Kable: clientId not provided');
-      console.error('Failed to initialize Kable: clientId not provided');
+      throw new Error('Failed to initialize Kable: clientId not provided');
+      // console.error('Failed to initialize Kable: clientId not provided');
     }
     if (!this.kableClientSecret) {
-      // throw new Error('Failed to initialize Kable: clientSecret not provided');
-      console.error('Failed to initialize Kable: clientSecret not provided');
+      throw new Error('Failed to initialize Kable: clientSecret not provided');
+      // console.error('Failed to initialize Kable: clientSecret not provided');
     }
     if (!this.baseUrl) {
-      // throw new Error('Failed to initialize Kable: baseUrl not provided');
-      console.error('Failed to initialize Kable: baseUrl not provided');
+      throw new Error('Failed to initialize Kable: baseUrl not provided');
+      // console.error('Failed to initialize Kable: baseUrl not provided');
     }
 
-    this.validCache = new NodeCache({ stdTTL: 10, maxKeys: 1000, checkperiod: 120 });
-    this.invalidCache = new NodeCache({ stdTTL: 10, maxKeys: 1000, checkperiod: 120 });
+    this.queue = [];
+    this.queueFlushInterval = 10000; // 10 seconds
+    this.queueMaxCount = 10; // 10 requests
+
+    this.validCache = new NodeCache({ stdTTL: 20, maxKeys: 1000, checkperiod: 300 });
+    this.invalidCache = new NodeCache({ stdTTL: 20, maxKeys: 1000, checkperiod: 300 });
+
 
     this.kableEnvironment = this.environment.toLowerCase() === 'live' ? 'live' : 'test';
 
     axios({
       url: `https://${this.kableEnvironment}.kableapi.com/api/authenticate`,
+      // url: `http://localhost:8080/api/authenticate`,
       method: 'POST',
       headers: {
-        [KABLE_ENVIRONMENT_HEADER_KEY]: this.environment,
-        [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId,
-        [X_CLIENT_ID_HEADER_KEY]: this.kableClientId,
-        [X_API_KEY_HEADER_KEY]: this.kableClientSecret,
-        [AUTHORIZATION_KEY]: `Bearer ${this.kableClientSecret}`
+        [KABLE_ENVIRONMENT_HEADER_KEY]: this.environment || '',
+        [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId || '',
+        [X_CLIENT_ID_HEADER_KEY]: this.kableClientId || '',
+        [X_API_KEY_HEADER_KEY]: this.kableClientSecret || '',
       }
     })
       .then(response => {
@@ -76,77 +82,143 @@ class Kable {
       })
       .catch(error => {
         // throw new Error('Failed to initialize Kable: Something went wrong');
-        console.error('Failed to initialize Kable: Something went wrong', error);
+        console.error('Failed to initialize Kable: Something went wrong');
       });
   }
 
 
   authenticate = (req, res, next) => {
     // const method = req.method;
-    const xClientId = req.get(X_CLIENT_ID_HEADER_KEY);
-    let secretKey = req.get(X_API_KEY_HEADER_KEY);
-    if (!secretKey) {
-      if (req.headers && req.headers.authorization) {
-        const authorizationParts = req.headers.authorization.split(' ');
-        if (authorizationParts.length == 2) {
-          const scheme = authorizationParts[0];
-          const credentials = authorizationParts[1];
-          if (/^Bearer$/i.test(scheme)) {
-            secretKey = credentials;
-          }
-        }
-      }
-    }
+    const clientId = req.get(X_CLIENT_ID_HEADER_KEY);
+    const secretKey = req.get(X_API_KEY_HEADER_KEY);
+    const requestId = uuidv4();
+
+    this.enqueueMessage(clientId, requestId, req);
 
     if (!this.environment || !this.kableClientId) {
-      return res.status(500).json({ message: 'Failed to initialize Kable: Configuration invalid' });
+      return res.status(500).json({ message: 'Unauthorized. Failed to initialize Kable: Configuration invalid' });
     }
 
-    if (/*!this.environment || !this.kableClientId ||*/ !xClientId || !secretKey) {
+    if (!clientId || !secretKey) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
     const validCacheClientId = this.validCache.get(secretKey);
     if (validCacheClientId) {
-      return next(req);
+      console.debug("Valid Cache Hit");
+      res.locals.request_id = requestId;
+      return next();
     }
 
     const invalidCacheClientId = this.invalidCache.get(secretKey);
     if (invalidCacheClientId) {
+      console.debug("Invalid Cache Hit");
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
+    console.debug("Authenticating at server");
     axios({
       url: `https://${this.kableEnvironment}.kableapi.com/api/authenticate`,
+      // url: `http://localhost:8080/api/authenticate`,
       method: 'POST',
       headers: {
-        [KABLE_ENVIRONMENT_HEADER_KEY]: this.environment,
-        [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId,
-        [X_CLIENT_ID_HEADER_KEY]: xClientId,
-        [X_API_KEY_HEADER_KEY]: secretKey,
-        [AUTHORIZATION_KEY]: `Bearer: ${secretKey}`
+        [KABLE_ENVIRONMENT_HEADER_KEY]: this.environment || '',
+        [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId || '',
+        [X_CLIENT_ID_HEADER_KEY]: clientId || '',
+        [X_API_KEY_HEADER_KEY]: secretKey || '',
+        [X_REQUEST_ID_HEADER_KEY]: requestId || '',
       },
       data: req.body
     })
       .then(response => {
-        if (response.status % 100 == 2) {
-          this.validCache.set(secretKey, xClientId);
-          return next(req);
+        const status = response.status;
+
+        if (status >= 200 && status < 300) {
+          this.validCache.set(secretKey, clientId);
+          res.locals.request_id = requestId;
+          return next();
         }
 
-        if (response.status % 100 == 4) {
-          this.invalidCache.set(secretKey, xClientId);
-          return res.status(401).json({ message: 'Unauthorized' });
-        }
-
-        return res.status(response.status).json({ message: 'Unexpected response' });
+        console.warn(`Unexpected ${status} response from Kable authenticate. Please update your SDK to the latest version immediately.`)
+        return res.status(401).json({ message: 'Unauthorized' });
       })
       .catch(error => {
-        if (error.response) {
-          return res.status(error.response.status).json({ message: error.response.data });
+        if (error.response && error.response.status && error.response.status) {
+          const status = error.response.status;
+          if (status === 401) {
+            this.invalidCache.set(secretKey, clientId);
+            return res.status(401).json({ message: 'Unauthorized' });
+          }
+
+          console.warn(`Unexpected ${status} response from Kable authenticate. Please update your SDK to the latest version immediately.`)
+          return res.status(500).json({ message: 'Something went wrong' });
         }
         else return res.status(500).json({ message: 'Something went wrong' });
       });
+  }
+
+  enqueueMessage = (clientId, requestId, req) => {
+    const message = {};
+    message['library'] = packageJson.name;
+    message['library_version'] = packageJson.version;
+    message['created'] = new Date();
+    message['request_id'] = requestId;
+
+    message['environment'] = this.environment;
+    message['kable_client_id'] = this.kableClientId;
+    message['client_id'] = clientId;
+
+    const request = {};
+    request['url'] = req.url;
+    request['method'] = req.method;
+    // request['headers'] = req.headers;
+    // request['body'] = req.body;
+    message['request'] = request;
+
+    this.queue.push(message);
+
+    if (this.queue.length >= this.queueMaxCount) {
+      this.flushQueue();
+      return;
+    }
+
+    if (this.queueFlushInterval && !this.timer) {
+      this.timer = setTimeout(() => this.flushQueue(), this.queueFlushInterval);
+    }
+  }
+
+  flushQueue = () => {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+
+    if (this.queue.length) {
+      const messages = this.queue.splice(0, this.queueMaxCount);
+
+      axios({
+        url: `https://${this.kableEnvironment}.kableapi.com/api/requests`,
+        // url: `http://localhost:8080/api/requests`,
+        method: 'POST',
+        headers: {
+          [KABLE_ENVIRONMENT_HEADER_KEY]: this.environment || '',
+          [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId || '',
+          [X_CLIENT_ID_HEADER_KEY]: this.kableClientId || '',
+          [X_API_KEY_HEADER_KEY]: this.kableClientSecret || '',
+        },
+        data: messages
+      })
+        .then(() => {
+          console.debug(`Successfully sent ${messages.length} messages to Kable server`);
+        })
+        .catch(error => {
+          console.error(`Failed to send ${messages.length} messages to Kable server`);
+        })
+    } else {
+      console.debug('...no messages to flush...');
+    }
+
+    this.timer = setTimeout(() => this.flushQueue(), this.queueFlushInterval);
   }
 
 }
