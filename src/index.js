@@ -20,8 +20,8 @@ class Kable {
     console.log("Initializing Kable");
 
     if (!config) {
-      // throw new Error('Failed to initialize Kable: config not provided');
-      console.error('Failed to initialize Kable: config not provided');
+      throw new Error('Failed to initialize Kable: config not provided');
+      // console.error('Failed to initialize Kable: config not provided');
     }
 
     this.environment = config.environment;
@@ -50,8 +50,8 @@ class Kable {
     this.queueFlushInterval = 10000; // 10 seconds
     this.queueMaxCount = 10; // 10 requests
 
-    this.validCache = new NodeCache({ stdTTL: 20, maxKeys: 1000, checkperiod: 300 });
-    this.invalidCache = new NodeCache({ stdTTL: 20, maxKeys: 1000, checkperiod: 300 });
+    this.validCache = new NodeCache({ stdTTL: 30, maxKeys: 1000, checkperiod: 300 });
+    this.invalidCache = new NodeCache({ stdTTL: 30, maxKeys: 1000, checkperiod: 300 });
 
 
     this.kableEnvironment = this.environment.toLowerCase() === 'live' ? 'live' : 'test';
@@ -81,8 +81,16 @@ class Kable {
         console.log("Kable initialized successfully");
       })
       .catch(error => {
-        // throw new Error('Failed to initialize Kable: Something went wrong');
-        console.error('Failed to initialize Kable: Something went wrong');
+        if (error.response && error.response.status) {
+          const status = error.response.status;
+          if (status == 401) {
+            console.error('Failed to initialize Kable: Unauthorized');
+          } else {
+            console.warn(`Failed to initialize Kable: Unexpected ${status} response from Kable authenticate. Please update your SDK to the latest version immediately.`)
+          }
+        } else {
+          console.error('Failed to initialize Kable: Something went wrong');
+        }
       });
   }
 
@@ -143,9 +151,9 @@ class Kable {
         return res.status(401).json({ message: 'Unauthorized' });
       })
       .catch(error => {
-        if (error.response && error.response.status && error.response.status) {
+        if (error.response && error.response.status) {
           const status = error.response.status;
-          if (status === 401) {
+          if (status == 401) {
             this.invalidCache.set(secretKey, clientId);
             return res.status(401).json({ message: 'Unauthorized' });
           }
