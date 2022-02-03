@@ -114,7 +114,7 @@ class Kable {
     const validCacheClientId = this.validCache.get(secretKey);
     if (validCacheClientId) {
       console.debug("Valid Cache Hit");
-      res.locals.request_id = requestId;
+      res.locals.requestId = requestId;
       return next();
     }
 
@@ -143,7 +143,7 @@ class Kable {
 
         if (status >= 200 && status < 300) {
           this.validCache.set(secretKey, clientId);
-          res.locals.request_id = requestId;
+          res.locals.requestId = requestId;
           return next();
         }
 
@@ -168,13 +168,13 @@ class Kable {
   enqueueMessage = (clientId, requestId, req) => {
     const message = {};
     message['library'] = packageJson.name;
-    message['library_version'] = packageJson.version;
+    message['libraryVersion'] = packageJson.version;
     message['created'] = new Date();
-    message['request_id'] = requestId;
+    message['requestId'] = requestId;
 
     message['environment'] = this.environment;
-    message['kable_client_id'] = this.kableClientId;
-    message['client_id'] = clientId;
+    message['kableClientId'] = this.kableClientId;
+    message['clientId'] = clientId;
 
     const request = {};
     request['url'] = req.url;
