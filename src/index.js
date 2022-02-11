@@ -180,7 +180,7 @@ class Kable {
 
     event['environment'] = this.environment;
     event['kableClientId'] = this.kableClientId;
-    event['customerId'] = clientId;
+    event['clientId'] = clientId;
     event['timestamp'] = new Date();
 
     event['data'] = {};
