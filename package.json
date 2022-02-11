@@ -1,6 +1,6 @@
 {
   "name": "kable-node-express",
-  "version": "2.1.5",
+  "version": "2.2.1",
   "description": "Kable Node Express SDK",
   "main": "src/index.js",
   "engines": {
@@ -24,7 +24,6 @@
   "homepage": "https://github.com/KableAPI/kable-node-express-sdk#readme",
   "dependencies": {
     "axios": "^0.25.0",
-    "node-cache": "^5.1.2",
-    "uuid4": "^2.0.2"
+    "node-cache": "^5.1.2"
   }
 }

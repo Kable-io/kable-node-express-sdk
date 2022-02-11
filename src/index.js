@@ -1,13 +1,12 @@
 const packageJson = require('../package.json')
 const axios = require('axios');
-const uuidv4 = require("uuid4");
 const NodeCache = require("node-cache");
 
 const KABLE_ENVIRONMENT_HEADER_KEY = 'KABLE-ENVIRONMENT';
 const KABLE_CLIENT_ID_HEADER_KEY = 'KABLE-CLIENT-ID';
+const KABLE_CLIENT_SECRET_HEADER_KEY = 'KABLE-CLIENT-SECRET';
 const X_CLIENT_ID_HEADER_KEY = 'X-CLIENT-ID';
 const X_API_KEY_HEADER_KEY = 'X-API-KEY';
-const X_USER_ID_KEY = 'X-USER-ID';
 const X_REQUEST_ID_HEADER_KEY = 'X-REQUEST-ID';
 
 function kable(config) {
@@ -29,6 +28,10 @@ class Kable {
     this.kableClientId = config.clientId;
     this.kableClientSecret = config.clientSecret;
     this.baseUrl = config.baseUrl;
+    this.debug = config.debug || false;
+    if (this.debug) {
+      console.log("Starting Kable with debug enabled");
+    }
 
     if (!this.environment) {
       throw new Error('Failed to initialize Kable: environment not provided');
@@ -58,13 +61,13 @@ class Kable {
     this.kableEnvironment = this.environment.toLowerCase() === 'live' ? 'live' : 'test';
 
     axios({
-      url: `https://${this.kableEnvironment}.kableapi.com/api/authenticate`,
-      // url: `http://localhost:8080/api/authenticate`,
+      url: `${this.baseUrl}/api/v1/authenticate`,
       method: 'POST',
       headers: {
         [KABLE_ENVIRONMENT_HEADER_KEY]: this.environment || '',
         [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId || '',
         [X_CLIENT_ID_HEADER_KEY]: this.kableClientId || '',
+        [KABLE_CLIENT_SECRET_HEADER_KEY]: this.kableClientSecret || '',
         [X_API_KEY_HEADER_KEY]: this.kableClientSecret || '',
       }
     })
@@ -97,12 +100,15 @@ class Kable {
 
 
   authenticate = (req, res, next) => {
+    if (this.debug) {
+      console.debug("Received request to authenticate");
+    }
+
     // const method = req.method;
     const clientId = req.get(X_CLIENT_ID_HEADER_KEY);
     const secretKey = req.get(X_API_KEY_HEADER_KEY);
-    const requestId = uuidv4();
 
-    this.enqueueMessage(clientId, requestId, req);
+    this.enqueueEvent(clientId);
 
     if (!this.environment || !this.kableClientId) {
       return res.status(500).json({ message: 'Unauthorized. Failed to initialize Kable: Configuration invalid' });
@@ -114,28 +120,32 @@ class Kable {
 
     const validCacheClientId = this.validCache.get(secretKey);
     if (validCacheClientId && validCacheClientId === clientId) {
-      // console.debug("Valid Cache Hit");
-      res.locals.requestId = requestId;
+      if (this.debug) {
+        console.debug("Valid Cache Hit");
+      }
       return next();
     }
 
     const invalidCacheClientId = this.invalidCache.get(secretKey);
     if (invalidCacheClientId && invalidCacheClientId === clientId) {
-      // console.debug("Invalid Cache Hit");
+      if (this.debug) {
+        console.debug("Invalid Cache Hit");
+      }
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    // console.debug("Authenticating at server");
+    if (this.debug) {
+      console.debug("Authenticating at server");
+    }
+
     axios({
-      url: `https://${this.kableEnvironment}.kableapi.com/api/authenticate`,
-      // url: `http://localhost:8080/api/authenticate`,
+      url: `${this.baseUrl}/api/authenticate`,
       method: 'POST',
       headers: {
         [KABLE_ENVIRONMENT_HEADER_KEY]: this.environment || '',
         [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId || '',
         [X_CLIENT_ID_HEADER_KEY]: clientId || '',
         [X_API_KEY_HEADER_KEY]: secretKey || '',
-        [X_REQUEST_ID_HEADER_KEY]: requestId || '',
       },
       data: req.body
     })
@@ -144,7 +154,6 @@ class Kable {
 
         if (status >= 200 && status < 300) {
           this.validCache.set(secretKey, clientId);
-          res.locals.requestId = requestId;
           return next();
         }
 
@@ -166,29 +175,21 @@ class Kable {
       });
   }
 
-  enqueueMessage = (clientId, requestId, req) => {
-    const message = {};
-    message['library'] = packageJson.name;
-    message['libraryVersion'] = packageJson.version;
-    message['created'] = new Date();
-    message['requestId'] = requestId;
+  enqueueEvent = (clientId) => {
+    const event = {};
 
-    message['environment'] = this.environment;
-    message['kableClientId'] = this.kableClientId;
-    message['clientId'] = clientId;
-    const xUserId = req.get(X_USER_ID_KEY);
-    if (xUserId) {
-      message['userId'] = xUserId;
-    }
+    event['environment'] = this.environment;
+    event['kableClientId'] = this.kableClientId;
+    event['customerId'] = clientId;
+    event['timestamp'] = new Date();
 
-    const request = {};
-    request['url'] = req.url;
-    request['method'] = req.method;
-    // request['headers'] = req.headers;
-    // request['body'] = req.body;
-    message['request'] = request;
+    event['data'] = {};
 
-    this.queue.push(message);
+    const library = {};
+    library['name'] = packageJson.name;
+    library['version'] = packageJson.version;
+
+    this.queue.push(event);
 
     if (this.queue.length >= this.queueMaxCount) {
       this.flushQueue();
@@ -201,34 +202,40 @@ class Kable {
   }
 
   flushQueue = () => {
+    if (this.debug) {
+      console.debug('Flushing Kable event queue...');
+    }
+
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = null;
     }
 
     if (this.queue.length) {
-      const messages = this.queue.splice(0, this.queueMaxCount);
+      const events = this.queue.splice(0, this.queueMaxCount);
 
       axios({
-        url: `https://${this.kableEnvironment}.kableapi.com/api/requests`,
-        // url: `http://localhost:8080/api/requests`,
+        url: `${this.baseUrl}/api/v1/events`,
         method: 'POST',
         headers: {
           [KABLE_ENVIRONMENT_HEADER_KEY]: this.environment || '',
           [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId || '',
           [X_CLIENT_ID_HEADER_KEY]: this.kableClientId || '',
+          [KABLE_CLIENT_SECRET_HEADER_KEY]: this.kableClientSecret || '',
           [X_API_KEY_HEADER_KEY]: this.kableClientSecret || '',
         },
-        data: messages
+        data: events
       })
         .then(() => {
-          console.debug(`Successfully sent ${messages.length} messages to Kable server`);
+          console.debug(`Successfully sent ${events.length} events to Kable server`);
         })
         .catch(error => {
-          console.error(`Failed to send ${messages.length} messages to Kable server`);
+          console.error(`Failed to send ${events.length} events to Kable server`);
         })
     } else {
-      // console.debug('...no messages to flush...');
+      if (this.debug) {
+        console.debug('...no Kable events to flush...');
+      }
     }
 
     this.timer = setTimeout(() => this.flushQueue(), this.queueFlushInterval);
