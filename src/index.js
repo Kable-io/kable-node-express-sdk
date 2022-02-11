@@ -7,11 +7,6 @@ const KABLE_CLIENT_ID_HEADER_KEY = 'KABLE-CLIENT-ID';
 const KABLE_CLIENT_SECRET_HEADER_KEY = 'KABLE-CLIENT-SECRET';
 const X_CLIENT_ID_HEADER_KEY = 'X-CLIENT-ID';
 const X_API_KEY_HEADER_KEY = 'X-API-KEY';
-const X_REQUEST_ID_HEADER_KEY = 'X-REQUEST-ID';
-
-function kable(config) {
-  return new Kable(config).authenticate;
-}
 
 class Kable {
 
@@ -99,6 +94,36 @@ class Kable {
   }
 
 
+  record = (data) => {
+    if (this.debug) {
+      console.debug("Received data to record");
+    }
+
+    let clientId = data['clientId'];
+    if (clientId) {
+      delete data['clientId']
+    }
+    let customerId = data['customerId'];
+    if (clientId) {
+      delete data['customerId'];
+    }
+
+    this.enqueueEvent(clientId, customerId, data);
+  }
+
+
+  recordRequest = (req, res, next) => {
+    if (this.debug) {
+      console.debug("Received request to record");
+    }
+
+    const clientId = req.get(X_CLIENT_ID_HEADER_KEY);
+
+    this.enqueueEvent(clientId, null, {});
+
+    return next();
+  }
+
   authenticate = (req, res, next) => {
     if (this.debug) {
       console.debug("Received request to authenticate");
@@ -108,7 +133,7 @@ class Kable {
     const clientId = req.get(X_CLIENT_ID_HEADER_KEY);
     const secretKey = req.get(X_API_KEY_HEADER_KEY);
 
-    this.enqueueEvent(clientId);
+    this.enqueueEvent(clientId, null, {});
 
     if (!this.environment || !this.kableClientId) {
       return res.status(500).json({ message: 'Unauthorized. Failed to initialize Kable: Configuration invalid' });
@@ -175,15 +200,16 @@ class Kable {
       });
   }
 
-  enqueueEvent = (clientId) => {
+  enqueueEvent = (clientId, customerId, data) => {
     const event = {};
 
     event['environment'] = this.environment;
     event['kableClientId'] = this.kableClientId;
     event['clientId'] = clientId;
+    event['customerId'] = customerId;
     event['timestamp'] = new Date();
 
-    event['data'] = {};
+    event['data'] = data;
 
     const library = {};
     library['name'] = packageJson.name;
@@ -245,5 +271,5 @@ class Kable {
 
 
 module.exports = {
-  kable
+  Kable
 }
