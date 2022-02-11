@@ -7,6 +7,7 @@ const KABLE_ENVIRONMENT_HEADER_KEY = 'KABLE-ENVIRONMENT';
 const KABLE_CLIENT_ID_HEADER_KEY = 'KABLE-CLIENT-ID';
 const X_CLIENT_ID_HEADER_KEY = 'X-CLIENT-ID';
 const X_API_KEY_HEADER_KEY = 'X-API-KEY';
+const X_USER_ID_KEY = 'X-USER-ID';
 const X_REQUEST_ID_HEADER_KEY = 'X-REQUEST-ID';
 
 function kable(config) {
@@ -15,7 +16,7 @@ function kable(config) {
 
 class Kable {
 
-  constructor(config /*, options*/) {
+  constructor(config) {
 
     console.log("Initializing Kable");
 
@@ -112,19 +113,19 @@ class Kable {
     }
 
     const validCacheClientId = this.validCache.get(secretKey);
-    if (validCacheClientId) {
-      console.debug("Valid Cache Hit");
+    if (validCacheClientId && validCacheClientId === clientId) {
+      // console.debug("Valid Cache Hit");
       res.locals.requestId = requestId;
       return next();
     }
 
     const invalidCacheClientId = this.invalidCache.get(secretKey);
-    if (invalidCacheClientId) {
-      console.debug("Invalid Cache Hit");
+    if (invalidCacheClientId && invalidCacheClientId === clientId) {
+      // console.debug("Invalid Cache Hit");
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    console.debug("Authenticating at server");
+    // console.debug("Authenticating at server");
     axios({
       url: `https://${this.kableEnvironment}.kableapi.com/api/authenticate`,
       // url: `http://localhost:8080/api/authenticate`,
@@ -175,6 +176,10 @@ class Kable {
     message['environment'] = this.environment;
     message['kableClientId'] = this.kableClientId;
     message['clientId'] = clientId;
+    const xUserId = req.get(X_USER_ID_KEY);
+    if (xUserId) {
+      message['userId'] = xUserId;
+    }
 
     const request = {};
     request['url'] = req.url;
@@ -223,7 +228,7 @@ class Kable {
           console.error(`Failed to send ${messages.length} messages to Kable server`);
         })
     } else {
-      console.debug('...no messages to flush...');
+      // console.debug('...no messages to flush...');
     }
 
     this.timer = setTimeout(() => this.flushQueue(), this.queueFlushInterval);
