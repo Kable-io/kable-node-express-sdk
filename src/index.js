@@ -112,18 +112,6 @@ class Kable {
   }
 
 
-  recordRequest = (req, res, next) => {
-    if (this.debug) {
-      console.debug("Received request to record");
-    }
-
-    const clientId = req.get(X_CLIENT_ID_HEADER_KEY);
-
-    this.enqueueEvent(clientId, null, {});
-
-    return next();
-  }
-
   authenticate = (req, res, next) => {
     if (this.debug) {
       console.debug("Received request to authenticate");
@@ -132,8 +120,6 @@ class Kable {
     // const method = req.method;
     const clientId = req.get(X_CLIENT_ID_HEADER_KEY);
     const secretKey = req.get(X_API_KEY_HEADER_KEY);
-
-    this.enqueueEvent(clientId, null, {});
 
     if (!this.environment || !this.kableClientId) {
       return res.status(500).json({ message: 'Unauthorized. Failed to initialize Kable: Configuration invalid' });
@@ -148,6 +134,7 @@ class Kable {
       if (this.debug) {
         console.debug("Valid Cache Hit");
       }
+      this.enqueueEvent(clientId, null, {});
       return next();
     }
 
@@ -179,6 +166,7 @@ class Kable {
 
         if (status >= 200 && status < 300) {
           this.validCache.set(secretKey, clientId);
+          this.enqueueEvent(clientId, null, {});
           return next();
         }
 
