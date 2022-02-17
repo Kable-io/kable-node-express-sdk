@@ -24,8 +24,19 @@ class Kable {
     this.kableClientSecret = config.clientSecret;
     this.baseUrl = config.baseUrl;
     this.debug = config.debug || false;
+    this.disableCache = config.disableCache || false;
     if (this.debug) {
       console.log("Starting Kable with debug enabled");
+    }
+
+    if (this.disableCache) {
+      console.log("Starting Kable with disableCache enabled");
+    }
+
+    this.recordAuthentication = true;
+    if (config.recordAuthentication === false) {
+      console.log("Starting Kable with recordAuthentication disabled, authentication requests will not be recorded");
+      this.recordAuthentication = false;
     }
 
     if (!this.environment) {
@@ -134,7 +145,9 @@ class Kable {
       if (this.debug) {
         console.debug("Valid Cache Hit");
       }
-      this.enqueueEvent(clientId, null, {});
+      if (this.recordAuthentication) {
+        this.enqueueEvent(clientId, null, {});
+      }
       return next();
     }
 
@@ -166,7 +179,9 @@ class Kable {
 
         if (status >= 200 && status < 300) {
           this.validCache.set(secretKey, clientId);
-          this.enqueueEvent(clientId, null, {});
+          if (this.recordAuthentication) {
+            this.enqueueEvent(clientId, null, {});
+          }
           return next();
         }
 
@@ -204,6 +219,9 @@ class Kable {
     library['version'] = packageJson.version;
 
     this.queue.push(event);
+    if (this.disableCache) {
+      this.flushQueue();
+    }
 
     if (this.queue.length >= this.queueMaxCount) {
       this.flushQueue();
