@@ -1,5 +1,10 @@
-const packageJson = require('../package.json')
-const axios = require('axios');
+// import packageJson from '../package.json'
+// import express from "express";
+// import axios from "axios";
+// import NodeCache from "node-cache";
+const packageJson = require("../package.json");
+const express = require("express");
+const axios = require("axios");
 const NodeCache = require("node-cache");
 
 const KABLE_ENVIRONMENT_HEADER_KEY = 'KABLE-ENVIRONMENT';
@@ -10,7 +15,22 @@ const X_API_KEY_HEADER_KEY = 'X-API-KEY';
 
 class Kable {
 
-  constructor(config) {
+  public environment!: string;
+  public kableClientId!: string;
+  public kableClientSecret!: string;
+  public baseUrl!: string;
+  public debug!: boolean;
+  public disableCache!: boolean;
+  public recordAuthentication!: boolean;
+
+  public queue!: any[];
+  public queueFlushInterval!: number;
+  public queueMaxCount!: number;
+  public validCache!: any;
+  public invalidCache!: any;
+  public timer?: any;
+
+  constructor(config: any) {
 
     console.log("Initializing Kable");
 
@@ -64,7 +84,7 @@ class Kable {
     this.invalidCache = new NodeCache({ stdTTL: 30, maxKeys: 1000, checkperiod: 300 });
 
 
-    this.kableEnvironment = this.environment.toLowerCase() === 'live' ? 'live' : 'test';
+    // this.kableEnvironment = this.environment.toLowerCase() === 'live' ? 'live' : 'test';
 
     axios({
       url: `${this.baseUrl}/api/v1/authenticate`,
@@ -77,7 +97,7 @@ class Kable {
         [X_API_KEY_HEADER_KEY]: this.kableClientSecret || '',
       }
     })
-      .then(response => {
+      .then((response: any) => {
         if (response.status === 200) {
           // proceed with initialization
         } else if (response.status === 401) {
@@ -90,7 +110,7 @@ class Kable {
 
         console.log("Kable initialized successfully");
       })
-      .catch(error => {
+      .catch((error: any) => {
         if (error.response && error.response.status) {
           const status = error.response.status;
           if (status == 401) {
@@ -105,7 +125,7 @@ class Kable {
   }
 
 
-  record = (data) => {
+  record = (data: any) => {
     if (this.debug) {
       console.debug("Received data to record");
     }
@@ -119,11 +139,11 @@ class Kable {
       delete data['customerId'];
     }
 
-    this.enqueueEvent(clientId, customerId, data);
+    this.enqueueEvent(clientId, data, customerId);
   }
 
 
-  authenticate = (req, res, next) => {
+  authenticate = (req: any, res: any, next: any) => {
     if (this.debug) {
       console.debug("Received request to authenticate");
     }
@@ -146,7 +166,7 @@ class Kable {
         console.debug("Valid Cache Hit");
       }
       if (this.recordAuthentication) {
-        this.enqueueEvent(clientId, null, {});
+        this.enqueueEvent(clientId, {}, undefined);
       }
       return next();
     }
@@ -174,13 +194,13 @@ class Kable {
       },
       data: req.body
     })
-      .then(response => {
+      .then((response: any) => {
         const status = response.status;
 
         if (status >= 200 && status < 300) {
           this.validCache.set(secretKey, clientId);
           if (this.recordAuthentication) {
-            this.enqueueEvent(clientId, null, {});
+            this.enqueueEvent(clientId, {}, undefined);
           }
           return next();
         }
@@ -188,7 +208,7 @@ class Kable {
         console.warn(`Unexpected ${status} response from Kable authenticate. Please update your SDK to the latest version immediately.`)
         return res.status(401).json({ message: 'Unauthorized' });
       })
-      .catch(error => {
+      .catch((error: any) => {
         if (error.response && error.response.status) {
           const status = error.response.status;
           if (status == 401) {
@@ -203,8 +223,8 @@ class Kable {
       });
   }
 
-  enqueueEvent = (clientId, customerId, data) => {
-    const event = {};
+  enqueueEvent = (clientId: string, data: any, customerId?: string) => {
+    const event: any = {};
 
     event['environment'] = this.environment;
     event['kableClientId'] = this.kableClientId;
@@ -214,7 +234,7 @@ class Kable {
 
     event['data'] = data;
 
-    const library = {};
+    const library: any = {};
     library['name'] = packageJson.name;
     library['version'] = packageJson.version;
 
@@ -261,7 +281,7 @@ class Kable {
         .then(() => {
           console.debug(`Successfully sent ${events.length} events to Kable server`);
         })
-        .catch(error => {
+        .catch((error: any) => {
           console.error(`Failed to send ${events.length} events to Kable server`);
         })
     } else {
@@ -276,6 +296,4 @@ class Kable {
 }
 
 
-module.exports = {
-  Kable
-}
+export default Kable;
