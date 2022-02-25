@@ -1,11 +1,7 @@
-// import packageJson from '../package.json'
-// import express from "express";
-// import axios from "axios";
-// import NodeCache from "node-cache";
-const packageJson = require("../package.json");
-const express = require("express");
-const axios = require("axios");
-const NodeCache = require("node-cache");
+import packageJson from '../package.json'
+import express from "express";
+import axios from "axios";
+import NodeCache from "node-cache";
 
 const KABLE_ENVIRONMENT_HEADER_KEY = 'KABLE-ENVIRONMENT';
 const KABLE_CLIENT_ID_HEADER_KEY = 'KABLE-CLIENT-ID';
@@ -15,20 +11,20 @@ const X_API_KEY_HEADER_KEY = 'X-API-KEY';
 
 class Kable {
 
-  environment: string;
-  kableClientId: string;
-  kableClientSecret: string;
-  baseUrl: string;
-  debug: boolean;
-  disableCache: boolean;
-  recordAuthentication: boolean;
+  private environment: string;
+  private kableClientId: string;
+  private kableClientSecret: string;
+  private baseUrl: string;
+  private debug: boolean;
+  private disableCache: boolean;
+  private recordAuthentication: boolean;
 
-  queue: any[];
-  queueFlushInterval: number;
-  queueMaxCount: number;
-  validCache: any;
-  invalidCache: any;
-  timer: any;
+  private queue: any[];
+  private queueFlushInterval: number;
+  private queueMaxCount: number;
+  private validCache: any;
+  private invalidCache: any;
+  private timer: any;
 
   constructor(config: any) {
 
@@ -143,7 +139,7 @@ class Kable {
   }
 
 
-  authenticate = (req: any, res: any, next: any) => {
+  authenticate = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (this.debug) {
       console.debug("Received request to authenticate");
     }
@@ -223,7 +219,7 @@ class Kable {
       });
   }
 
-  enqueueEvent = (clientId: string, data: any, customerId?: string) => {
+  private enqueueEvent = (clientId: string, data: any, customerId?: string) => {
     const event: any = {};
 
     event['environment'] = this.environment;
@@ -253,7 +249,7 @@ class Kable {
     }
   }
 
-  flushQueue = () => {
+  private flushQueue = () => {
     if (this.debug) {
       console.debug('Flushing Kable event queue...');
     }

@@ -1,6 +1,6 @@
 {
   "name": "kable-node-express",
-  "version": "2.3.9",
+  "version": "2.3.10",
   "description": "Kable Node Express SDK",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
