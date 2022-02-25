@@ -15,20 +15,20 @@ const X_API_KEY_HEADER_KEY = 'X-API-KEY';
 
 class Kable {
 
-  public environment!: string;
-  public kableClientId!: string;
-  public kableClientSecret!: string;
-  public baseUrl!: string;
-  public debug!: boolean;
-  public disableCache!: boolean;
-  public recordAuthentication!: boolean;
+  environment: string;
+  kableClientId: string;
+  kableClientSecret: string;
+  baseUrl: string;
+  debug: boolean;
+  disableCache: boolean;
+  recordAuthentication: boolean;
 
-  public queue!: any[];
-  public queueFlushInterval!: number;
-  public queueMaxCount!: number;
-  public validCache!: any;
-  public invalidCache!: any;
-  public timer?: any;
+  queue: any[];
+  queueFlushInterval: number;
+  queueMaxCount: number;
+  validCache: any;
+  invalidCache: any;
+  timer: any;
 
   constructor(config: any) {
 
@@ -296,4 +296,4 @@ class Kable {
 }
 
 
-export default Kable;
+export { Kable };
