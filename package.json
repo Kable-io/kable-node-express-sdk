@@ -1,8 +1,9 @@
 {
   "name": "kable-node-express",
-  "version": "2.3.4",
+  "version": "2.3.6",
   "description": "Kable Node Express SDK",
   "main": "src/index.js",
+  "types": "src/index.d.ts",
   "engines": {
     "node": "v17.4.0",
     "npm": ">=8"
