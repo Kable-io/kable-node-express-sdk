@@ -16,12 +16,11 @@ class Kable {
   private kableClientSecret: string;
   private baseUrl: string;
   private debug: boolean;
-  private disableCache: boolean;
+  private maxQueueSize: number;
   private recordAuthentication: boolean;
 
   private queue: any[];
   private queueFlushInterval: number;
-  private queueMaxCount: number;
   private validCache: any;
   private invalidCache: any;
   private timer: any;
@@ -40,14 +39,19 @@ class Kable {
     this.kableClientSecret = config.clientSecret;
     this.baseUrl = config.baseUrl;
     this.debug = config.debug || false;
-    this.disableCache = config.disableCache || false;
+    this.maxQueueSize = config.maxQueueSize || 10; // maximum number of messages to queue before sending
     if (this.debug) {
       console.log("Starting Kable with debug enabled");
     }
 
-    if (this.disableCache) {
-      console.log("Starting Kable with disableCache enabled");
+    const disableCache: boolean = config.disableCache || false;
+    if (disableCache) {
+      this.maxQueueSize = 1;
     }
+    if (this.maxQueueSize > 100) {
+      this.maxQueueSize = 100;
+    }
+    console.log(`Starting Kable with maxQueueSize ${this.maxQueueSize}`);
 
     this.recordAuthentication = true;
     if (config.recordAuthentication === false) {
@@ -74,7 +78,6 @@ class Kable {
 
     this.queue = [];
     this.queueFlushInterval = 10000; // 10 seconds
-    this.queueMaxCount = 10; // 10 requests
 
     this.validCache = new NodeCache({ stdTTL: 30, maxKeys: 1000, checkperiod: 300 });
     this.invalidCache = new NodeCache({ stdTTL: 30, maxKeys: 1000, checkperiod: 300 });
@@ -88,8 +91,9 @@ class Kable {
       headers: {
         [KABLE_ENVIRONMENT_HEADER_KEY]: this.environment || '',
         [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId || '',
-        [X_CLIENT_ID_HEADER_KEY]: this.kableClientId || '',
         [KABLE_CLIENT_SECRET_HEADER_KEY]: this.kableClientSecret || '',
+
+        [X_CLIENT_ID_HEADER_KEY]: this.kableClientId || '',
         [X_API_KEY_HEADER_KEY]: this.kableClientSecret || '',
       }
     })
@@ -185,6 +189,7 @@ class Kable {
       headers: {
         [KABLE_ENVIRONMENT_HEADER_KEY]: this.environment || '',
         [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId || '',
+
         [X_CLIENT_ID_HEADER_KEY]: clientId || '',
         [X_API_KEY_HEADER_KEY]: secretKey || '',
       },
@@ -235,11 +240,8 @@ class Kable {
     library['version'] = packageJson.version;
 
     this.queue.push(event);
-    if (this.disableCache) {
-      this.flushQueue();
-    }
 
-    if (this.queue.length >= this.queueMaxCount) {
+    if (this.queue.length >= this.maxQueueSize) {
       this.flushQueue();
       return;
     }
@@ -260,7 +262,7 @@ class Kable {
     }
 
     if (this.queue.length) {
-      const events = this.queue.splice(0, this.queueMaxCount);
+      const events = this.queue.splice(0, this.maxQueueSize);
 
       axios({
         url: `${this.baseUrl}/api/v1/events`,
@@ -268,8 +270,8 @@ class Kable {
         headers: {
           [KABLE_ENVIRONMENT_HEADER_KEY]: this.environment || '',
           [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId || '',
-          [X_CLIENT_ID_HEADER_KEY]: this.kableClientId || '',
           [KABLE_CLIENT_SECRET_HEADER_KEY]: this.kableClientSecret || '',
+          [X_CLIENT_ID_HEADER_KEY]: this.kableClientId || '',
           [X_API_KEY_HEADER_KEY]: this.kableClientSecret || '',
         },
         data: events
@@ -279,6 +281,7 @@ class Kable {
         })
         .catch((error: any) => {
           console.error(`Failed to send ${events.length} events to Kable server`);
+          events.map(event => console.log(`Kable Event (Error): ${event}`));
         })
     } else {
       if (this.debug) {
@@ -290,6 +293,5 @@ class Kable {
   }
 
 }
-
 
 export { Kable };

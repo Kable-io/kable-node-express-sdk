@@ -1,9 +1,9 @@
 {
   "name": "kable-node-express",
-  "version": "2.3.10",
+  "version": "2.3.11",
   "description": "Kable Node Express SDK",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
   "engines": {
     "node": "v17.4.0",
     "npm": ">=8"
@@ -14,14 +14,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/KableAPI/kable-node-express-sdk.git"
+    "url": "git+https://github.com/Kable-io/kable-node-express-sdk.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/KableAPI/kable-node-express-sdk/issues"
+    "url": "https://github.com/Kable-io/kable-node-express-sdk/issues"
   },
-  "homepage": "https://github.com/KableAPI/kable-node-express-sdk#readme",
+  "homepage": "https://github.com/Kable-io/kable-node-express-sdk#readme",
   "dependencies": {
     "axios": "^0.25.0",
     "express": "^4.17.3",
