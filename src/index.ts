@@ -9,6 +9,14 @@ const KABLE_CLIENT_SECRET_HEADER_KEY = 'KABLE-CLIENT-SECRET';
 const X_CLIENT_ID_HEADER_KEY = 'X-CLIENT-ID';
 const X_API_KEY_HEADER_KEY = 'X-API-KEY';
 
+declare global {
+  namespace Express {
+    interface Request {
+      clientId?: string;
+    }
+  }
+}
+
 class Kable {
 
   private environment: string;
@@ -168,6 +176,7 @@ class Kable {
       if (this.recordAuthentication) {
         this.enqueueEvent(clientId, {}, undefined);
       }
+      req.clientId = clientId;
       return next();
     }
 
@@ -203,6 +212,7 @@ class Kable {
           if (this.recordAuthentication) {
             this.enqueueEvent(clientId, {}, undefined);
           }
+          req.clientId = clientId;
           return next();
         }
 
