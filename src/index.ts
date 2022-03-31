@@ -35,11 +35,11 @@ class Kable {
 
   constructor(config: any) {
 
-    console.log("Initializing Kable");
+    console.log("[KABLE] Initializing Kable");
 
     if (!config) {
-      throw new Error('Failed to initialize Kable: config not provided');
-      // console.error('Failed to initialize Kable: config not provided');
+      throw new Error('[KABLE] Failed to initialize Kable: config not provided');
+      // console.error('[KABLE] Failed to initialize Kable: config not provided');
     }
 
     this.environment = config.environment;
@@ -49,7 +49,7 @@ class Kable {
     this.debug = config.debug || false;
     this.maxQueueSize = config.maxQueueSize || 10; // maximum number of messages to queue before sending
     if (this.debug) {
-      console.log("Starting Kable with debug enabled");
+      console.log("[KABLE] Starting Kable with debug enabled");
     }
 
     const disableCache: boolean = config.disableCache || false;
@@ -59,28 +59,28 @@ class Kable {
     if (this.maxQueueSize > 100) {
       this.maxQueueSize = 100;
     }
-    console.log(`Starting Kable with maxQueueSize ${this.maxQueueSize}`);
+    console.log(`[KABLE] Starting Kable with maxQueueSize ${this.maxQueueSize}`);
 
     this.recordAuthentication = true;
     if (config.recordAuthentication === false) {
-      console.log("Starting Kable with recordAuthentication disabled, authentication requests will not be recorded");
+      console.log("[KABLE] Starting Kable with recordAuthentication disabled, authentication requests will not be recorded");
       this.recordAuthentication = false;
     }
 
     if (!this.environment) {
-      throw new Error('Failed to initialize Kable: environment not provided');
+      throw new Error('[KABLE] Failed to initialize Kable: environment not provided');
       // console.error('Failed to initialize Kable: environment not provided');
     }
     if (!this.kableClientId) {
-      throw new Error('Failed to initialize Kable: clientId not provided');
+      throw new Error('[KABLE] Failed to initialize Kable: clientId not provided');
       // console.error('Failed to initialize Kable: clientId not provided');
     }
     if (!this.kableClientSecret) {
-      throw new Error('Failed to initialize Kable: clientSecret not provided');
+      throw new Error('[KABLE] Failed to initialize Kable: clientSecret not provided');
       // console.error('Failed to initialize Kable: clientSecret not provided');
     }
     if (!this.baseUrl) {
-      throw new Error('Failed to initialize Kable: baseUrl not provided');
+      throw new Error('[KABLE] Failed to initialize Kable: baseUrl not provided');
       // console.error('Failed to initialize Kable: baseUrl not provided');
     }
 
@@ -110,24 +110,25 @@ class Kable {
           // proceed with initialization
         } else if (response.status === 401) {
           // throw new Error('Failed to initialize Kable: Unauthorized');
-          console.error('Failed to initialize Kable: Unauthorized');
+          console.error('[KABLE] Failed to initialize Kable: Unauthorized');
         } else {
           // throw new Error('Failed to initialize Kable: Something went wrong');
-          console.error('Failed to initialize Kable: Something went wrong');
+          console.error('[KABLE] Failed to initialize Kable: Something went wrong');
         }
 
-        console.log("Kable initialized successfully");
+        console.log("[KABLE] Kable initialized successfully");
       })
       .catch((error: any) => {
         if (error.response && error.response.status) {
           const status = error.response.status;
           if (status == 401) {
-            console.error('Failed to initialize Kable: Unauthorized');
+            console.error('[KABLE] Failed to initialize Kable: Unauthorized');
           } else {
-            console.warn(`Failed to initialize Kable: Unexpected ${status} response from Kable authenticate. Please update your SDK to the latest version immediately.`)
+            console.warn(`[KABLE] Failed to initialize Kable: Unexpected ${status} response from Kable authenticate. Please update your SDK to the latest version immediately.`)
           }
         } else {
-          console.error('Failed to initialize Kable: Something went wrong');
+          console.error(error);
+          console.error('[KABLE] Failed to initialize Kable: Something went wrong');
         }
       });
   }
@@ -135,7 +136,7 @@ class Kable {
 
   record = (data: any) => {
     if (this.debug) {
-      console.debug("Received data to record");
+      console.debug("[KABLE] Received data to record");
     }
 
     let clientId = data['clientId'];
@@ -153,7 +154,7 @@ class Kable {
 
   authenticate = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (this.debug) {
-      console.debug("Received request to authenticate");
+      console.debug("[KABLE] Received request to authenticate");
     }
 
     // const method = req.method;
@@ -171,7 +172,7 @@ class Kable {
     const validCacheClientId = this.validCache.get(secretKey);
     if (validCacheClientId && validCacheClientId === clientId) {
       if (this.debug) {
-        console.debug("Valid Cache Hit");
+        console.debug("[KABLE] Valid Cache Hit");
       }
       if (this.recordAuthentication) {
         this.enqueueEvent(clientId, {}, undefined);
@@ -183,13 +184,13 @@ class Kable {
     const invalidCacheClientId = this.invalidCache.get(secretKey);
     if (invalidCacheClientId && invalidCacheClientId === clientId) {
       if (this.debug) {
-        console.debug("Invalid Cache Hit");
+        console.debug("[KABLE] Invalid Cache Hit");
       }
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
     if (this.debug) {
-      console.debug("Authenticating at server");
+      console.debug("[KABLE] Authenticating at server");
     }
 
     axios({
@@ -216,7 +217,7 @@ class Kable {
           return next();
         }
 
-        console.warn(`Unexpected ${status} response from Kable authenticate. Please update your SDK to the latest version immediately.`)
+        console.warn(`[KABLE] Unexpected ${status} response from Kable authenticate. Please update your SDK to the latest version immediately.`)
         return res.status(401).json({ message: 'Unauthorized' });
       })
       .catch((error: any) => {
@@ -227,10 +228,13 @@ class Kable {
             return res.status(401).json({ message: 'Unauthorized' });
           }
 
-          console.warn(`Unexpected ${status} response from Kable authenticate. Please update your SDK to the latest version immediately.`)
+          console.warn(`[KABLE] Unexpected ${status} response from Kable authenticate. Please update your SDK to the latest version immediately.`)
           return res.status(500).json({ message: 'Something went wrong' });
         }
-        else return res.status(500).json({ message: 'Something went wrong' });
+        else {
+          console.error(error);
+          return res.status(500).json({ message: 'Something went wrong' });
+        }
       });
   }
 
@@ -263,7 +267,7 @@ class Kable {
 
   private flushQueue = () => {
     if (this.debug) {
-      console.debug('Flushing Kable event queue...');
+      console.debug('[KABLE] Flushing Kable event queue...');
     }
 
     if (this.timer) {
@@ -290,12 +294,13 @@ class Kable {
           console.debug(`Successfully sent ${events.length} events to Kable server`);
         })
         .catch((error: any) => {
-          console.error(`Failed to send ${events.length} events to Kable server`);
-          events.map(event => console.log(`Kable Event (Error): ${event}`));
+          console.error(error);
+          console.error(`[KABLE] Failed to send ${events.length} events to Kable server`);
+          events.map(event => console.log(`[KABLE] Kable Event (Error): ${event}`));
         })
     } else {
       if (this.debug) {
-        console.debug('...no Kable events to flush...');
+        console.debug('[KABLE] ...no Kable events to flush...');
       }
     }
 
