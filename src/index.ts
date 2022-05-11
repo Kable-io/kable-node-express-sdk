@@ -109,11 +109,11 @@ class Kable {
         if (response.status === 200) {
           // proceed with initialization
         } else if (response.status === 401) {
-          // throw new Error('Failed to initialize Kable: Unauthorized');
-          console.error('[KABLE] Failed to initialize Kable: Unauthorized');
+          throw new Error('[KABLE] Failed to initialize Kable: Unauthorized');
+          // console.error('[KABLE] Failed to initialize Kable: Unauthorized');
         } else {
-          // throw new Error('Failed to initialize Kable: Something went wrong');
-          console.error('[KABLE] Failed to initialize Kable: Something went wrong');
+          throw new Error('[KABLE] Failed to initialize Kable: Something went wrong');
+          // console.error('[KABLE] Failed to initialize Kable: Something went wrong');
         }
 
         console.log("[KABLE] Kable initialized successfully");
@@ -122,13 +122,16 @@ class Kable {
         if (error.response && error.response.status) {
           const status = error.response.status;
           if (status == 401) {
-            console.error('[KABLE] Failed to initialize Kable: Unauthorized');
+            // console.error('[KABLE] Failed to initialize Kable: Unauthorized');
+            throw new Error('[KABLE] Failed to initialize Kable: Unauthorized');
           } else {
-            console.warn(`[KABLE] Failed to initialize Kable: Unexpected ${status} response from Kable authenticate. Please update your SDK to the latest version immediately.`)
+            // console.warn(`[KABLE] Failed to initialize Kable: Unexpected ${status} response from Kable authenticate. Please update your SDK to the latest version immediately.`);
+            throw new Error(`[KABLE] Failed to initialize Kable: Unexpected ${status} response from Kable authenticate. Please update your SDK to the latest version immediately.`);
           }
         } else {
           console.error(error);
-          console.error('[KABLE] Failed to initialize Kable: Something went wrong');
+          // console.error('[KABLE] Failed to initialize Kable: Something went wrong');
+          throw new Error('[KABLE] Failed to initialize Kable: Something went wrong');
         }
       });
   }
@@ -279,7 +282,7 @@ class Kable {
       const events = this.queue.splice(0, this.maxQueueSize);
 
       axios({
-        url: `${this.baseUrl}/api/v1/events`,
+        url: `${this.baseUrl}/api/v1/events/create`,
         method: 'POST',
         headers: {
           [KABLE_ENVIRONMENT_HEADER_KEY]: this.environment || '',
@@ -294,9 +297,9 @@ class Kable {
           console.debug(`Successfully sent ${events.length} events to Kable server`);
         })
         .catch((error: any) => {
-          console.error(error);
+          console.error(JSON.stringify(error));
           console.error(`[KABLE] Failed to send ${events.length} events to Kable server`);
-          events.map(event => console.log(`[KABLE] Kable Event (Error): ${event}`));
+          events.map(event => console.log(`[KABLE] Kable Event (Error): ${JSON.stringify(event)}`));
         })
     } else {
       if (this.debug) {
