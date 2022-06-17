@@ -1,7 +1,7 @@
-import packageJson from '../package.json'
-import express from "express";
 import axios from "axios";
+import express from "express";
 import NodeCache from "node-cache";
+import packageJson from '../package.json';
 
 const KABLE_ENVIRONMENT_HEADER_KEY = 'KABLE-ENVIRONMENT';
 const KABLE_CLIENT_ID_HEADER_KEY = 'KABLE-CLIENT-ID';
@@ -154,22 +154,39 @@ class Kable {
     this.enqueueEvent(clientId, data, customerId);
   }
 
+  express = {
+    authenticate: (req: express.Request, res: express.Response, next: express.NextFunction) => {
+      const clientId = req.get(X_CLIENT_ID_HEADER_KEY);
+      const secretKey = req.get(X_API_KEY_HEADER_KEY);
+      
+      try {
+        req.clientId = await express.authenticate(clientId, secretKey)
+        next()
+      } catch (error: any) {
+        switch (error.constructor) {
+          case UnauthorizedError:
+            res.status(401).json({ message: error.message })
+          case InternalServerError:
+            res.status(500).json({ message: error.message })
+          default:
+            console.error(`[KABLE] Received unexpected error`, error)
+            res.status(500).json({ message: 'Unexpected error' })
+        }
+      }
+    }
+  }
 
-  authenticate = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  authenticate = async (clientId: string, secretKey: string): Promise<string> => {
     if (this.debug) {
       console.debug("[KABLE] Received request to authenticate");
     }
 
-    // const method = req.method;
-    const clientId = req.get(X_CLIENT_ID_HEADER_KEY);
-    const secretKey = req.get(X_API_KEY_HEADER_KEY);
-
     if (!this.environment || !this.kableClientId) {
-      return res.status(500).json({ message: 'Unauthorized. Failed to initialize Kable: Configuration invalid' });
+      throw new InternalServerError('Unauthorized. Failed to initialize Kable: Configuration invalid')
     }
 
     if (!clientId || !secretKey) {
-      return res.status(401).json({ message: 'Unauthorized' });
+      throw new UnauthorizedError('Unauthorized. clientId or secretKey not provided')
     }
 
     const validCacheClientId = this.validCache.get(secretKey);
@@ -180,8 +197,8 @@ class Kable {
       if (this.recordAuthentication) {
         this.enqueueEvent(clientId, {}, undefined);
       }
-      req.clientId = clientId;
-      return next();
+
+      return clientId; // not sure this is needed, just following suit
     }
 
     const invalidCacheClientId = this.invalidCache.get(secretKey);
@@ -189,14 +206,14 @@ class Kable {
       if (this.debug) {
         console.debug("[KABLE] Invalid Cache Hit");
       }
-      return res.status(401).json({ message: 'Unauthorized' });
+      throw new UnauthorizedError('Unauthorized')
     }
 
     if (this.debug) {
       console.debug("[KABLE] Authenticating at server");
     }
 
-    axios({
+    return axios({
       url: `${this.baseUrl}/api/authenticate`,
       method: 'POST',
       headers: {
@@ -206,7 +223,7 @@ class Kable {
         [X_CLIENT_ID_HEADER_KEY]: clientId || '',
         [X_API_KEY_HEADER_KEY]: secretKey || '',
       },
-      data: req.body
+      data: req.body // I don't actually know what should go here. Is body needed?
     })
       .then((response: any) => {
         const status = response.status;
@@ -216,29 +233,30 @@ class Kable {
           if (this.recordAuthentication) {
             this.enqueueEvent(clientId, {}, undefined);
           }
-          req.clientId = clientId;
-          return next();
+
+          return clientId;
         }
 
         console.warn(`[KABLE] Unexpected ${status} response from Kable authenticate. Please update your SDK to the latest version immediately.`)
-        return res.status(401).json({ message: 'Unauthorized' });
+        throw new UnauthorizedError('Unauthorized')
       })
       .catch((error: any) => {
         if (error.response && error.response.status) {
           const status = error.response.status;
           if (status == 401) {
             this.invalidCache.set(secretKey, clientId);
-            return res.status(401).json({ message: 'Unauthorized' });
+            throw new UnauthorizedError('Unauthorized')
           }
 
           console.warn(`[KABLE] Unexpected ${status} response from Kable authenticate. Please update your SDK to the latest version immediately.`)
-          return res.status(500).json({ message: 'Something went wrong' });
+          throw new InternalServerError(`Unexpected ${status} response from Kable authenticate`)
         }
         else {
           console.error(error);
-          return res.status(500).json({ message: 'Something went wrong' });
+          throw new InternalServerError(error)
         }
       });
+    }
   }
 
   private enqueueEvent = (clientId: string, data: any, customerId?: string) => {
@@ -313,3 +331,6 @@ class Kable {
 }
 
 export { Kable };
+
+class InternalServerError extends Error {}
+class UnauthorizedError extends Error {}
