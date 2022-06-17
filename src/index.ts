@@ -156,10 +156,10 @@ class Kable {
 
   express = {
     authenticate: (req: express.Request, res: express.Response, next: express.NextFunction) => {
+      const clientId = req.get(X_CLIENT_ID_HEADER_KEY);
+      const secretKey = req.get(X_API_KEY_HEADER_KEY);
+      
       try {
-        const clientId = req.get(X_CLIENT_ID_HEADER_KEY);
-        const secretKey = req.get(X_API_KEY_HEADER_KEY);
-        
         req.clientId = await express.authenticate(clientId, secretKey)
         next()
       } catch (error: any) {
