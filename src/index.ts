@@ -3,7 +3,6 @@ import express from "express";
 import axios from "axios";
 import NodeCache from "node-cache";
 
-const KABLE_ENVIRONMENT_HEADER_KEY = 'KABLE-ENVIRONMENT';
 const KABLE_CLIENT_ID_HEADER_KEY = 'KABLE-CLIENT-ID';
 const KABLE_CLIENT_SECRET_HEADER_KEY = 'KABLE-CLIENT-SECRET';
 const X_CLIENT_ID_HEADER_KEY = 'X-CLIENT-ID';
@@ -19,7 +18,6 @@ declare global {
 
 class Kable {
 
-  private environment: string;
   private kableClientId: string;
   private kableClientSecret: string;
   private baseUrl: string;
@@ -42,9 +40,8 @@ class Kable {
       // console.error('[KABLE] Failed to initialize Kable: config not provided');
     }
 
-    this.environment = config.environment;
-    this.kableClientId = config.clientId;
-    this.kableClientSecret = config.clientSecret;
+    this.kableClientId = config.kableClientId;
+    this.kableClientSecret = config.kableClientSecret;
     this.baseUrl = config.baseUrl;
     this.debug = config.debug || false;
     this.maxQueueSize = config.maxQueueSize || 10; // maximum number of messages to queue before sending
@@ -56,8 +53,8 @@ class Kable {
     if (disableCache) {
       this.maxQueueSize = 1;
     }
-    if (this.maxQueueSize > 100) {
-      this.maxQueueSize = 100;
+    if (this.maxQueueSize > 500) {
+      this.maxQueueSize = 500;
     }
     console.log(`[KABLE] Starting Kable with maxQueueSize ${this.maxQueueSize}`);
 
@@ -67,21 +64,17 @@ class Kable {
       this.recordAuthentication = false;
     }
 
-    if (!this.environment) {
-      throw new Error('[KABLE] Failed to initialize Kable: environment not provided');
-      // console.error('Failed to initialize Kable: environment not provided');
-    }
     if (!this.kableClientId) {
-      throw new Error('[KABLE] Failed to initialize Kable: clientId not provided');
-      // console.error('Failed to initialize Kable: clientId not provided');
+      // console.error('[KABLE] Failed to initialize Kable: kableClientId not provided');
+      throw new Error('[KABLE] Failed to initialize Kable: kableClientId not provided');
     }
     if (!this.kableClientSecret) {
-      throw new Error('[KABLE] Failed to initialize Kable: clientSecret not provided');
-      // console.error('Failed to initialize Kable: clientSecret not provided');
+      // console.error('[KABLE] Failed to initialize Kable: kableClientSecret not provided');
+      throw new Error('[KABLE] Failed to initialize Kable: kableClientSecret not provided');
     }
     if (!this.baseUrl) {
+      // console.error('[KABLE] Failed to initialize Kable: baseUrl not provided');
       throw new Error('[KABLE] Failed to initialize Kable: baseUrl not provided');
-      // console.error('Failed to initialize Kable: baseUrl not provided');
     }
 
     this.queue = [];
@@ -97,7 +90,6 @@ class Kable {
       url: `${this.baseUrl}/api/v1/authenticate`,
       method: 'POST',
       headers: {
-        [KABLE_ENVIRONMENT_HEADER_KEY]: this.environment || '',
         [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId || '',
         [KABLE_CLIENT_SECRET_HEADER_KEY]: this.kableClientSecret || '',
 
@@ -146,12 +138,8 @@ class Kable {
     if (clientId) {
       delete data['clientId']
     }
-    let customerId = data['customerId'];
-    if (clientId) {
-      delete data['customerId'];
-    }
 
-    this.enqueueEvent(clientId, data, customerId);
+    this.enqueueEvent(clientId, data);
   }
 
 
@@ -164,7 +152,7 @@ class Kable {
     const clientId = req.get(X_CLIENT_ID_HEADER_KEY);
     const secretKey = req.get(X_API_KEY_HEADER_KEY);
 
-    if (!this.environment || !this.kableClientId) {
+    if (!this.baseUrl || !this.kableClientId) {
       return res.status(500).json({ message: 'Unauthorized. Failed to initialize Kable: Configuration invalid' });
     }
 
@@ -178,7 +166,7 @@ class Kable {
         console.debug("[KABLE] Valid Cache Hit");
       }
       if (this.recordAuthentication) {
-        this.enqueueEvent(clientId, {}, undefined);
+        this.enqueueEvent(clientId, {});
       }
       req.clientId = clientId;
       return next();
@@ -200,7 +188,6 @@ class Kable {
       url: `${this.baseUrl}/api/authenticate`,
       method: 'POST',
       headers: {
-        [KABLE_ENVIRONMENT_HEADER_KEY]: this.environment || '',
         [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId || '',
 
         [X_CLIENT_ID_HEADER_KEY]: clientId || '',
@@ -214,7 +201,7 @@ class Kable {
         if (status >= 200 && status < 300) {
           this.validCache.set(secretKey, clientId);
           if (this.recordAuthentication) {
-            this.enqueueEvent(clientId, {}, undefined);
+            this.enqueueEvent(clientId, {});
           }
           req.clientId = clientId;
           return next();
@@ -241,13 +228,11 @@ class Kable {
       });
   }
 
-  private enqueueEvent = (clientId: string, data: any, customerId?: string) => {
+  private enqueueEvent = (clientId: string, data: any) => {
     const event: any = {};
 
-    event['environment'] = this.environment;
     event['kableClientId'] = this.kableClientId;
     event['clientId'] = clientId;
-    event['customerId'] = customerId;
     event['timestamp'] = new Date();
 
     event['data'] = data;
@@ -285,11 +270,8 @@ class Kable {
         url: `${this.baseUrl}/api/v1/events/create`,
         method: 'POST',
         headers: {
-          [KABLE_ENVIRONMENT_HEADER_KEY]: this.environment || '',
           [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId || '',
           [KABLE_CLIENT_SECRET_HEADER_KEY]: this.kableClientSecret || '',
-          [X_CLIENT_ID_HEADER_KEY]: this.kableClientId || '',
-          [X_API_KEY_HEADER_KEY]: this.kableClientSecret || '',
         },
         data: events
       })
