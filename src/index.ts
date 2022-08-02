@@ -134,34 +134,27 @@ class Kable {
     })
       .then((response: any) => {
         if (response.status === 200) {
-          // proceed with initialization
+          console.log("[KABLE] Kable initialized successfully");
         } else if (response.status === 401) {
           throw new Error("[KABLE] Failed to initialize Kable: Unauthorized");
-          // console.error('[KABLE] Failed to initialize Kable: Unauthorized');
         } else {
           throw new Error(
             "[KABLE] Failed to initialize Kable: Something went wrong"
           );
-          // console.error('[KABLE] Failed to initialize Kable: Something went wrong');
         }
-
-        console.log("[KABLE] Kable initialized successfully");
       })
       .catch((error: any) => {
         if (error.response && error.response.status) {
           const status = error.response.status;
           if (status == 401) {
-            // console.error('[KABLE] Failed to initialize Kable: Unauthorized');
             throw new Error("[KABLE] Failed to initialize Kable: Unauthorized");
           } else {
-            // console.warn(`[KABLE] Failed to initialize Kable: Unexpected ${status} response from Kable authenticate. Please update your SDK to the latest version immediately.`);
             throw new Error(
               `[KABLE] Failed to initialize Kable: Unexpected ${status} response from Kable authenticate. Please update your SDK to the latest version immediately.`
             );
           }
         } else {
           console.error(error);
-          // console.error('[KABLE] Failed to initialize Kable: Something went wrong');
           throw new Error(
             "[KABLE] Failed to initialize Kable: Something went wrong"
           );
@@ -169,7 +162,7 @@ class Kable {
       });
   }
 
-  record = (data: any) => {
+  record = (data: any, callback?: any) => {
     if (this.debug) {
       console.debug("[KABLE] Received data to record");
     }
@@ -179,7 +172,8 @@ class Kable {
       delete data["clientId"];
     }
 
-    this.enqueueEvent(clientId, data);
+    this.enqueueEvent(clientId, data, callback);
+    return this;
   };
 
   authenticate = (
@@ -277,7 +271,13 @@ class Kable {
       });
   };
 
-  private enqueueEvent = (clientId: string, data: any) => {
+  shutdown = () => {
+    this.flushQueue();
+  };
+
+  private enqueueEvent = (clientId: string, data: any, callback?: any) => {
+    callback = callback || (() => {});
+
     const event: any = {};
 
     event["kableClientId"] = this.kableClientId;
@@ -290,11 +290,10 @@ class Kable {
     library["name"] = packageJson.name;
     library["version"] = packageJson.version;
 
-    this.queue.push(event);
+    this.queue.push({ event: event, callback: callback });
 
     if (this.queue.length >= this.maxQueueSize) {
       this.flushQueue();
-      return;
     }
 
     if (this.queueFlushInterval && !this.timer) {
@@ -302,7 +301,9 @@ class Kable {
     }
   };
 
-  private flushQueue = () => {
+  private flushQueue = (callback?: any) => {
+    callback = callback || (() => {});
+
     if (this.debug) {
       console.debug("[KABLE] Flushing Kable event queue...");
     }
@@ -312,39 +313,45 @@ class Kable {
       this.timer = null;
     }
 
-    if (this.queue.length) {
-      const events = this.queue.splice(0, this.maxQueueSize);
-
-      axios({
-        url: `${this.baseUrl}/api/v1/events/create`,
-        method: "POST",
-        headers: {
-          [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId || "",
-          [KABLE_CLIENT_SECRET_HEADER_KEY]: this.kableClientSecret || "",
-        },
-        data: events,
-      })
-        .then(() => {
-          console.debug(
-            `Successfully sent ${events.length} events to Kable server`
-          );
-        })
-        .catch((error: any) => {
-          console.error(JSON.stringify(error));
-          console.error(
-            `[KABLE] Failed to send ${events.length} events to Kable server`
-          );
-          events.map((event) =>
-            console.log(`[KABLE] Kable Event (Error): ${JSON.stringify(event)}`)
-          );
-        });
-    } else {
-      if (this.debug) {
-        console.debug("[KABLE] ...no Kable events to flush...");
-      }
+    if (!this.queue.length) {
+      console.debug("[KABLE] ...no Kable events to flush...");
+      return;
     }
 
-    this.timer = setTimeout(() => this.flushQueue(), this.queueFlushInterval);
+    const items: any[] = this.queue.splice(0, this.maxQueueSize);
+    const events: any[] = items.map((i: any) => i.event);
+    const callbacks: any[] = items.map((i: any) => i.callback);
+
+    const finish = (error?: any) => {
+      callbacks.forEach((callback: any) => callback(error));
+      callback(error);
+    };
+
+    axios({
+      url: `${this.baseUrl}/api/v1/events/create`,
+      method: "POST",
+      headers: {
+        [KABLE_CLIENT_ID_HEADER_KEY]: this.kableClientId || "",
+        [KABLE_CLIENT_SECRET_HEADER_KEY]: this.kableClientSecret || "",
+      },
+      data: events,
+    })
+      .then(() => {
+        console.debug(
+          `[KABLE] Successfully sent ${events.length} events to Kable server`
+        );
+        finish();
+      })
+      .catch((error: any) => {
+        console.error(JSON.stringify(error));
+        console.error(
+          `[KABLE] Failed to send ${events.length} events to Kable server`
+        );
+        events.map((event) =>
+          console.log(`[KABLE] Kable Event (Error): ${JSON.stringify(event)}`)
+        );
+        finish(error);
+      });
   };
 
   private isErrorRetryable = (error: AxiosError) => {
