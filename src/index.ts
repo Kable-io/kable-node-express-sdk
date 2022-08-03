@@ -289,6 +289,7 @@ class Kable {
     const library: any = {};
     library["name"] = packageJson.name;
     library["version"] = packageJson.version;
+    event["library"] = library;
 
     this.queue.push({ event: event, callback: callback });
 
