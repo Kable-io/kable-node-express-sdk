@@ -2,7 +2,7 @@ import packageJson from "../package.json";
 import express from "express";
 import axios, { AxiosError } from "axios";
 import axiosRetry from "axios-retry";
-
+import { v4 as uuid4 } from "uuid";
 import NodeCache from "node-cache";
 
 const KABLE_CLIENT_ID_HEADER_KEY = "KABLE-CLIENT-ID";
@@ -162,17 +162,17 @@ class Kable {
       });
   }
 
-  record = (data: any, callback?: any) => {
+  record = (
+    clientId: string,
+    data: any,
+    transactionId?: string,
+    callback?: any
+  ) => {
     if (this.debug) {
       console.debug("[KABLE] Received data to record");
     }
 
-    let clientId = data["clientId"];
-    if (clientId) {
-      delete data["clientId"];
-    }
-
-    this.enqueueEvent(clientId, data, callback);
+    this.enqueueEvent(clientId, data, transactionId, callback);
     return this;
   };
 
@@ -275,7 +275,12 @@ class Kable {
     this.flushQueue();
   };
 
-  private enqueueEvent = (clientId: string, data: any, callback?: any) => {
+  private enqueueEvent = (
+    clientId: string,
+    data: any,
+    transactionId?: string,
+    callback?: any
+  ) => {
     callback = callback || (() => {});
 
     const event: any = {};
@@ -283,6 +288,7 @@ class Kable {
     event["kableClientId"] = this.kableClientId;
     event["clientId"] = clientId;
     event["timestamp"] = new Date();
+    event["transactionId"] = transactionId || uuid4();
 
     event["data"] = data;
 
