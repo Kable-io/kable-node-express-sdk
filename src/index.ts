@@ -162,6 +162,15 @@ class Kable {
       });
   }
 
+  /**
+   * Record a usage event.
+   *
+   * @param clientId The clientId of the customer to whom this event should be attributed.
+   * @param data Event data to record.
+   * @param transactionId A unique identifier for this event used as an idempotency key. (If not provided, a UUID will be auto-generated.)
+   * @param callback
+   * @returns
+   */
   record = (
     clientId: string,
     data: any,
