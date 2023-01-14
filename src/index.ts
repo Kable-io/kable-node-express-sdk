@@ -242,7 +242,6 @@ class Kable {
         [X_CLIENT_ID_HEADER_KEY]: clientId || "",
         [X_API_KEY_HEADER_KEY]: secretKey || "",
       },
-      data: req.body,
     })
       .then((response: any) => {
         const status = response.status;
